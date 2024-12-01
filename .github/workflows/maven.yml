@@ -1,0 +1,43 @@
+name: Build and Push Docker Image
+
+on:
+  push:
+    branches:
+      - 'release/**'  # Trigger on push to branches matching release/**
+  workflow_dispatch:  # Allow manual trigger
+
+env:
+  DOCKER_IMAGE_NAME: api-gateway
+  DOCKER_REGISTRY: docker.io  # registry URL
+  DOCKER_USERNAME: ${{ secrets.DOCKERHUB_USERNAME }}
+  DOCKER_PASSWORD: ${{ secrets.DOCKERHUB_TOKEN }}  # Token for authentication
+
+jobs:
+  build:
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v3
+
+      - name: Get the release version
+        id: get-version
+        run: |
+          # Extract version from branch name (e.g., release/1.0.0 -> 1.0.0)
+          release_version=$(echo "${{ github.ref }}" | sed 's|refs/heads/release/||')
+          echo "RELEASE_VERSION=$release_version" >> $GITHUB_ENV
+
+      - name: Log in to Docker Registry
+        uses: docker/login-action@v2
+        with:
+          registry: $DOCKER_REGISTRY
+          username: $DOCKER_USERNAME
+          password: $DOCKER_PASSWORD
+
+      - name: Build Docker image
+        run: |
+          docker build . --file Dockerfile --tag $DOCKER_IMAGE_NAME:${{ env.RELEASE_VERSION }}
+
+      - name: Push Docker image
+        run: |
+          docker push $DOCKER_IMAGE_NAME:${{ env.RELEASE_VERSION }}
